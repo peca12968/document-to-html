@@ -1,8 +1,10 @@
 @echo off
+setlocal
 cd /d "%~dp0"
+set "PYTHONPATH=%~dp0src"
 if not exist ".venv\Scripts\pythonw.exe" (
     echo Please install first: python -m venv .venv
-    echo Then run: .venv\Scripts\python.exe -m pip install -e ".[word,layout]"
+    echo Then run: .venv\Scripts\python.exe -m pip install -e ".[word]"
     pause
     exit /b 1
 )

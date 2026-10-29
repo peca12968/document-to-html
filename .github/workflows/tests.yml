@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m pip install -e ".[dev,layout]"
+      - run: python -m pip install -e ".[dev]"
       - run: python -m pytest
   browser:
     runs-on: ubuntu-latest
@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - run: python -m pip install -e ".[dev,layout]"
+      - run: python -m pip install -e ".[dev]"
       - run: python -m playwright install --with-deps chromium
       - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-tra fonts-noto-cjk
-      - run: python -m pytest tests/test_browser.py tests/test_ocr.py tests/test_structure.py tests/test_layout.py --browser-channel chromium --ocr-integration
+      - run: python -m pytest tests/test_browser.py tests/test_ocr.py --browser-channel chromium --ocr-integration
