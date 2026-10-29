@@ -7,6 +7,8 @@ This project uses the following independently licensed software. Installing or d
 | pypdfium2 | Python PDFium bindings | Apache-2.0 / BSD-3-Clause; see the [project licensing documentation](https://github.com/pypdfium2-team/pypdfium2#licensing) |
 | PDFium and bundled third-party libraries | PDF rendering and extraction | BSD-style and individual third-party licenses, shipped with pypdfium2 wheels |
 | Pillow | Lossless PNG encoding | HPND; [license](https://github.com/python-pillow/Pillow/blob/main/LICENSE) |
+| Tesseract (separately installed) | Offline OCR with word coordinates and confidence | Apache-2.0; [license](https://github.com/tesseract-ocr/tesseract/blob/main/LICENSE) |
+| Tesseract traineddata (separately installed) | Traditional Chinese and English OCR models | See the chosen model repository; official [tessdata license](https://github.com/tesseract-ocr/tessdata/blob/main/LICENSE) |
 | pywin32 (optional, Windows) | Microsoft Word COM automation | PSF-2.0; [license](https://github.com/mhammond/pywin32/blob/main/License.txt) |
 | LibreOffice (separately installed) | Word to PDF conversion | MPL-2.0 and related licenses; [license information](https://www.libreoffice.org/about-us/licenses/) |
 | Microsoft Word (separately installed) | Word to PDF conversion | Proprietary; requires an appropriately licensed local installation |

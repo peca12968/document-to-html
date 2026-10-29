@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import tempfile
@@ -13,6 +13,7 @@ import pypdfium2 as pdfium
 from .backends import export_word
 from .errors import ConversionError
 from .html_writer import write_html
+from .ocr import OcrOptions
 
 
 @dataclass(frozen=True)
@@ -26,8 +27,10 @@ class ConversionOptions:
     max_pages: int = 200
     max_pixels: int = 50_000_000
     max_input_bytes: int = 100 * 1024 * 1024
+    ocr: OcrOptions = field(default_factory=OcrOptions)
 
     def validate(self) -> None:
+        self.ocr.validate()
         if not 72 <= self.dpi <= 600:
             raise ConversionError("DPI 必須介於 72 與 600。")
         if self.backend not in {"auto", "word", "libreoffice"}:
@@ -43,6 +46,7 @@ class ConversionResult:
     text_characters: int
     backend: str
     warnings: tuple[str, ...]
+    ocr_pages: tuple[int, ...] = ()
 
 
 def convert(
@@ -83,17 +87,18 @@ def convert(
                 suffix=".tmp", dir=destination.parent, delete=False,
             ) as stream:
                 temporary_output = Path(stream.name)
-                pages, text_characters, warnings = write_html(
+                pages, text_characters, warnings, ocr_pages = write_html(
                     pdf_path, stream, title=source.stem, dpi=options.dpi,
                     text_layer=options.text_layer, password=password,
                     max_pages=options.max_pages, max_pixels=options.max_pixels, progress=progress,
+                    ocr=options.ocr,
                 )
             if options.overwrite:
                 os.replace(temporary_output, destination)
             else:
                 # Atomic no-clobber: a file created during conversion is protected too.
                 os.link(temporary_output, destination)
-            return ConversionResult(destination, pages, text_characters, backend_name, warnings)
+            return ConversionResult(destination, pages, text_characters, backend_name, warnings, ocr_pages)
     except FileExistsError as error:
         raise ConversionError("輸出檔案已存在；未覆蓋既有資料。") from error
     except (OSError, pdfium.PdfiumError) as error:

@@ -5,6 +5,7 @@ import pytest
 
 def pytest_addoption(parser):
     parser.addoption("--browser-channel", default=None, help="Run browser checks with chromium or msedge")
+    parser.addoption("--ocr-integration", action="store_true", help="Run real Tesseract OCR integration checks")
 
 
 def make_pdf(path: Path, *, rotation: int = 0, text: bool = True, pages: int = 2) -> Path:

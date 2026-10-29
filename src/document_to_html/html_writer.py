@@ -13,6 +13,8 @@ from typing import Callable, TextIO
 import pypdfium2 as pdfium
 
 from .errors import ConversionError
+from .ocr import OcrOptions, TesseractEngine
+from .ocr_layer import make_ocr_layer, needs_ocr
 
 STYLE = """
 *{box-sizing:border-box}body{margin:0;background:#e9edf3;color:#202b3b;font-family:system-ui,sans-serif}
@@ -20,8 +22,8 @@ header{padding:18px 24px;background:#17283e;color:white}h1{margin:0;font-size:20
 header p{margin:8px 0 0;font-size:13px}main{padding:24px 12px}
 .page{position:relative;container-type:inline-size;margin:0 auto 24px;background:white;box-shadow:0 3px 16px #0002;max-width:100%;overflow:hidden}
 .page-image{display:block;width:100%;height:100%;user-select:none;pointer-events:none}
-.text-layer{position:absolute;inset:0;width:100%;height:100%;overflow:hidden}
-.text-line{white-space:pre;fill:transparent;cursor:text;user-select:text}
+.text-layer{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none}
+.text-line{white-space:pre;fill:transparent;cursor:text;user-select:text;pointer-events:all}
 .text-line::selection{background:rgba(30,110,230,.3);color:transparent;fill:transparent}
 footer{text-align:center;padding:8px 16px 24px;font-size:12px;color:#506070}
 @media print{body{background:white}header,footer{display:none}main{padding:0}.page{margin:0;max-width:none;box-shadow:none;break-after:page;break-inside:avoid}.page:last-child{break-after:auto}.text-layer{display:none}}
@@ -97,7 +99,12 @@ def write_html(
     pdf_path: Path, stream: TextIO, *, title: str, dpi: int,
     text_layer: bool, password: str | None, max_pages: int,
     max_pixels: int, progress: Callable[[int, int], None] | None,
-) -> tuple[int, int, tuple[str, ...]]:
+    ocr: OcrOptions | None = None,
+) -> tuple[int, int, tuple[str, ...], tuple[int, ...]]:
+    ocr = ocr or OcrOptions()
+    ocr.validate()
+    engine = TesseractEngine(ocr)
+    ocr_pages: list[int] = []
     try:
         document = pdfium.PdfDocument(pdf_path, password=password)
     except pdfium.PdfiumError as error:
@@ -130,9 +137,19 @@ def write_html(
                         image.save(buffer, format="PNG")
                         encoded_image = base64.b64encode(buffer.getvalue()).decode("ascii")
                     layer, count = _text_layer(page, bitmap) if text_layer else ("", 0)
+                if text_layer and needs_ocr(page, count, ocr.mode):
+                    ocr_layer, ocr_count, low_confidence = make_ocr_layer(page, ocr, engine, max_pixels)
+                    ocr_pages.append(index + 1)
+                    if ocr.mode == "always" or count == 0:
+                        layer, count = ocr_layer, ocr_count
+                    else:
+                        layer, count = layer + ocr_layer, count + ocr_count
+                    if low_confidence:
+                        warnings.append(f"第 {index + 1} 頁有 {low_confidence} 行 OCR 文字信心分數低於 60，請核對複製內容。")
                 text_characters += count
                 if text_layer and count == 0:
-                    warnings.append(f"第 {index + 1} 頁沒有可擷取文字；已保留影像，未進行 OCR。")
+                    detail = "OCR 未辨識出可用文字" if index + 1 in ocr_pages else "OCR 已關閉"
+                    warnings.append(f"第 {index + 1} 頁沒有可擷取文字；已保留影像，{detail}。")
                 page_name = f"sheet{index + 1}"
                 stream.write(
                     f'<style>@page {page_name}{{size:{width:.4f}pt {height:.4f}pt;margin:0}}</style>'
@@ -145,5 +162,7 @@ def write_html(
                 )
                 if progress:
                     progress(index + 1, page_count)
+        if ocr_pages:
+            stream.write(f'<footer>已對 {len(ocr_pages)} 頁執行 OCR；辨識文字可能有誤，請以原始影像為準。</footer>')
         stream.write('</main><footer>原始頁面外觀採用無損影像；文字層供選取與搜尋，非可編輯表格。</footer></body></html>')
-    return page_count, text_characters, tuple(warnings)
+    return page_count, text_characters, tuple(warnings), tuple(ocr_pages)

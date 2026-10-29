@@ -9,7 +9,7 @@ from PIL import Image, ImageChops
 import pypdfium2 as pdfium
 import pytest
 
-from document_to_html import ConversionOptions, convert
+from document_to_html import ConversionOptions, OcrOptions, convert
 from document_to_html.cli import main
 from document_to_html.errors import ConversionError
 from conftest import make_pdf
@@ -77,7 +77,7 @@ def test_source_cannot_be_overwritten_via_hardlink(source_pdf):
 
 def test_scanned_page_warns_and_no_text_mode_works(tmp_path):
     source = make_pdf(tmp_path / "scan.pdf", text=False)
-    result = convert(source)
+    result = convert(source, options=ConversionOptions(ocr=OcrOptions(mode="off")))
     assert result.text_characters == 0
     assert len(result.warnings) == 2
     result = convert(source, tmp_path / "image-only.html", options=ConversionOptions(text_layer=False))

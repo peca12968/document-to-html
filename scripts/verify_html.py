@@ -34,8 +34,14 @@ def verify(html: Path, directory: Path, channel: str) -> dict:
             "layers => layers.map(layer => layer.textContent).join('').replace(/\\s/g, '').length")
         report["selectable_characters"] = selectable_characters
         if selectable_characters:
-            text_probe = page.locator(".text-layer").first.evaluate("layer => layer.textContent.trim().slice(0, 4)")
-            report["browser_find"] = page.evaluate("text => window.find(text)", text_probe)
+            probes = page.locator(".text-layer").evaluate_all(
+                "layers => layers.map(layer => layer.textContent.trim().slice(0, 4)).filter(Boolean)")
+            search_results = []
+            for text_probe in probes:
+                page.evaluate("window.getSelection().removeAllRanges()")
+                search_results.append(page.evaluate("text => window.find(text, false, false, true)", text_probe))
+            report["browser_find"] = all(search_results)
+            report["searchable_layers_checked"] = len(search_results)
             assert report["browser_find"], "Browser cannot find extracted text"
             page.evaluate("window.getSelection().removeAllRanges()")
         for index, data in enumerate(image_data):

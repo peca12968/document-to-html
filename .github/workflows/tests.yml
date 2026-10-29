@@ -27,4 +27,5 @@ jobs:
           python-version: '3.14'
       - run: python -m pip install -e ".[dev]"
       - run: python -m playwright install --with-deps chromium
-      - run: python -m pytest tests/test_browser.py --browser-channel chromium
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-tra fonts-noto-cjk
+      - run: python -m pytest tests/test_browser.py tests/test_ocr.py --browser-channel chromium --ocr-integration

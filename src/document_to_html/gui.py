@@ -11,20 +11,24 @@ import webbrowser
 
 from .converter import ConversionOptions, ConversionResult, convert
 from .errors import ConversionError
+from .ocr import OcrOptions
 
 
 class ConverterWindow:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Word / PDF → 高還原 HTML")
-        self.root.geometry("760x440")
-        self.root.minsize(640, 400)
+        self.root.geometry("760x510")
+        self.root.minsize(640, 480)
         self.source = tk.StringVar()
         self.destination = tk.StringVar()
         self.dpi = tk.StringVar(value="200")
         self.backend = tk.StringVar(value="auto")
         self.password = tk.StringVar()
         self.text_layer = tk.BooleanVar(value=True)
+        self.ocr_mode = tk.StringVar(value="自動辨識")
+        self.ocr_language = tk.StringVar(value="chi_tra+eng")
+        self.ocr_layout = tk.StringVar(value="自動版面")
         self.status = tk.StringVar(value="選擇 Word 或 PDF，產生可離線開啟的單一 HTML。")
         self.events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.busy = False
@@ -49,19 +53,27 @@ class ConverterWindow:
         ttk.Label(options, text="Word 引擎").pack(side="left")
         ttk.Combobox(options, textvariable=self.backend, values=["auto", "word", "libreoffice"], width=12, state="readonly").pack(side="left", padx=(6, 16))
         ttk.Checkbutton(options, text="可選取文字層", variable=self.text_layer).pack(side="left")
+        ocr_frame = ttk.Frame(container)
+        ocr_frame.grid(row=5, column=0, columnspan=3, sticky="w", pady=8)
+        ttk.Label(ocr_frame, text="圖片 OCR").pack(side="left")
+        ttk.Combobox(ocr_frame, textvariable=self.ocr_mode, values=["自動辨識", "全部重辨識", "關閉"], width=12, state="readonly").pack(side="left", padx=(6, 16))
+        ttk.Label(ocr_frame, text="語言模型").pack(side="left")
+        ttk.Entry(ocr_frame, textvariable=self.ocr_language, width=16).pack(side="left", padx=6)
+        ttk.Label(ocr_frame, text="版面").pack(side="left", padx=(8, 0))
+        ttk.Combobox(ocr_frame, textvariable=self.ocr_layout, values=["自動版面", "單一區塊", "零散文字", "直排區塊"], width=12, state="readonly").pack(side="left", padx=6)
         password_frame = ttk.Frame(container)
-        password_frame.grid(row=5, column=0, columnspan=3, sticky="w", pady=8)
+        password_frame.grid(row=6, column=0, columnspan=3, sticky="w", pady=8)
         ttk.Label(password_frame, text="PDF 密碼（選填）").pack(side="left")
         ttk.Entry(password_frame, textvariable=self.password, show="●", width=24).pack(side="left", padx=8)
         actions = ttk.Frame(container)
-        actions.grid(row=6, column=0, columnspan=3, sticky="w", pady=12)
+        actions.grid(row=7, column=0, columnspan=3, sticky="w", pady=12)
         self.convert_button = ttk.Button(actions, text="開始轉換", command=self.start)
         self.convert_button.pack(side="left")
         self.open_button = ttk.Button(actions, text="開啟 HTML", command=self.open_result, state="disabled")
         self.open_button.pack(side="left", padx=12)
         self.progress = ttk.Progressbar(container, mode="indeterminate")
-        self.progress.grid(row=7, column=0, columnspan=3, sticky="ew")
-        ttk.Label(container, textvariable=self.status, wraplength=680).grid(row=8, column=0, columnspan=3, sticky="w", pady=10)
+        self.progress.grid(row=8, column=0, columnspan=3, sticky="ew")
+        ttk.Label(container, textvariable=self.status, wraplength=680).grid(row=9, column=0, columnspan=3, sticky="w", pady=10)
         root.protocol("WM_DELETE_WINDOW", self.close)
         root.after(100, self.poll)
 
@@ -92,14 +104,17 @@ class ConverterWindow:
         if overwrite and not messagebox.askyesno("覆蓋確認", "指定 HTML 已存在，是否覆蓋？"):
             return
         options = ConversionOptions(dpi=int(self.dpi.get()), backend=self.backend.get(),
-                                    text_layer=self.text_layer.get(), overwrite=overwrite)
+                                    text_layer=self.text_layer.get(), overwrite=overwrite,
+                                    ocr=OcrOptions(mode={"自動辨識": "auto", "全部重辨識": "always", "關閉": "off"}[self.ocr_mode.get()],
+                                                   language=self.ocr_language.get().strip(),
+                                                   psm={"自動版面": 3, "單一區塊": 6, "零散文字": 11, "直排區塊": 5}[self.ocr_layout.get()]))
         source, destination, password = self.source.get(), self.destination.get(), self.password.get() or None
         self.password.set("")
         self.busy = True
         self.result = None
         self.convert_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
-        self.status.set("正在準備文件，Word 轉檔可能需要一些時間…")
+        self.status.set("正在準備文件；Word 轉檔與逐頁 OCR 可能需要一些時間…")
         self.progress.configure(mode="indeterminate")
         self.progress.start(12)
 
@@ -130,9 +145,9 @@ class ConverterWindow:
                 if kind == "done":
                     self.result = value
                     self.open_button.configure(state="normal")
-                    self.status.set(f"完成 {value.pages} 頁（{value.backend}）：{value.output}")
+                    self.status.set(f"完成 {value.pages} 頁（{value.backend}，OCR {len(value.ocr_pages)} 頁）：{value.output}")
                     if value.warnings:
-                        messagebox.showwarning("轉換完成，部分頁面沒有文字層", "\n".join(value.warnings[:8]))
+                        messagebox.showwarning("轉換完成，請核對文字辨識提醒", "\n".join(value.warnings[:8]))
                 else:
                     self.status.set("轉換失敗。")
                     messagebox.showerror("轉換失敗", str(value))
