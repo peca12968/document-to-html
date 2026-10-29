@@ -1,0 +1,48 @@
+/* 紙張與共用字型：可直接依專案需求調整。 */
+@page { size: A4 portrait; margin: 12mm; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #fff; }
+body { color: #000; font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif; font-size: 11pt; line-height: 1.45; }
+.document { max-width: 210mm; margin: 0 auto; padding: 12mm; }
+.document-title { margin: 0 0 6mm; font-size: 18pt; line-height: 1.35; text-align: center; }
+.document-page + .document-page { margin-top: 8mm; }
+.document-section { margin: 5mm 0; }
+h2 { font-size: 14pt; margin: 4mm 0 2mm; }
+h3, h4, h5, h6 { font-size: 12pt; margin: 3mm 0 2mm; }
+p { margin: 1.5mm 0; overflow-wrap: anywhere; }
+/* 基本資料與留白欄位；後續可在 field-value 中加入輸入元件。 */
+.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1mm 5mm; margin: 3mm 0; }
+.field { min-width: 0; }
+.field-label { font-weight: bold; }
+.field-value { white-space: pre-line; overflow-wrap: anywhere; }
+.blank { display: inline-block; min-width: 18mm; min-height: 1em; border-bottom: 1px solid #000; vertical-align: baseline; }
+.choice-mark { white-space: nowrap; font-family: "Segoe UI Symbol", sans-serif; }
+/* 勾選圖片容器：後續可在 choice 中加入透明控制層；目前沒有互動行為。 */
+.choice { display: inline-flex; vertical-align: middle; margin: 0 .15em; }
+.choice-image { display: block; width: 1em; height: 1em; object-fit: contain; }
+/* Logo 與圖片：內嵌 PNG，正文仍是 HTML。 */
+.document-logo, .document-image { margin: 3mm 0; break-inside: avoid; }
+.document-logo img { display: block; max-width: 60mm; max-height: 20mm; width: auto; height: auto; }
+.document-image img { display: block; max-width: 100%; max-height: 120mm; width: auto; height: auto; }
+/* 表格使用真正的欄列，不使用逐字座標。 */
+.document-table { width: 100%; border-collapse: collapse; table-layout: auto; margin: 3mm 0; }
+.document-table caption { text-align: left; font-weight: bold; margin-bottom: 2mm; }
+.document-table th, .document-table td { border: 1px solid #000; padding: 1.5mm; vertical-align: top; overflow-wrap: anywhere; }
+.document-table th { font-weight: bold; text-align: left; }
+.document-table th[scope="row"] { min-width: 17mm; }
+.document-table .empty-cell { min-width: 7mm; height: 7mm; }
+.document-table .field-label { font-size: 9pt; }
+/* 清單保留來源編號，不另外產生第二組序號。 */
+.review-list { list-style: none; padding-left: 3mm; margin: 2mm 0; }
+.review-list li { margin: 2mm 0; }
+@media (max-width: 700px) {
+    .document { padding: 5mm; }
+    .field-grid { grid-template-columns: 1fr; }
+}
+@media print {
+    .document { max-width: none; padding: 0; }
+    .document-page + .document-page { break-before: page; margin-top: 0; }
+    h1, h2, h3, caption { break-after: avoid; }
+    tr, .field { break-inside: avoid; }
+    thead { display: table-header-group; }
+}

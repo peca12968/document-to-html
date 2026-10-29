@@ -28,9 +28,14 @@ class ConversionOptions:
     max_pixels: int = 50_000_000
     max_input_bytes: int = 100 * 1024 * 1024
     ocr: OcrOptions = field(default_factory=OcrOptions)
+    output_mode: str = "visual"
 
     def validate(self) -> None:
         self.ocr.validate()
+        if self.output_mode not in {"visual", "structured"}:
+            raise ConversionError("輸出模式必須為 visual 或 structured。")
+        if self.output_mode == "structured" and not self.text_layer:
+            raise ConversionError("靜態範本需要辨識文字，不能使用 --no-text-layer。")
         if not 72 <= self.dpi <= 600:
             raise ConversionError("DPI 必須介於 72 與 600。")
         if self.backend not in {"auto", "word", "libreoffice"}:
@@ -64,7 +69,8 @@ def convert(
         raise ConversionError("僅支援 .pdf、.doc、.docx 檔案。")
     if not 0 < source.stat().st_size <= options.max_input_bytes:
         raise ConversionError("輸入檔案為空或超過大小上限（預設 100 MiB）。")
-    destination = Path(output).expanduser().resolve() if output else source.with_suffix(".html")
+    default_output = source.with_name(f"{source.stem}-template.html") if options.output_mode == "structured" else source.with_suffix(".html")
+    destination = Path(output).expanduser().resolve() if output else default_output
     if destination.suffix.lower() not in {".html", ".htm"}:
         raise ConversionError("輸出副檔名必須為 .html 或 .htm。")
     if destination == source or (destination.exists() and os.path.samefile(source, destination)):
@@ -87,7 +93,11 @@ def convert(
                 suffix=".tmp", dir=destination.parent, delete=False,
             ) as stream:
                 temporary_output = Path(stream.name)
-                pages, text_characters, warnings, ocr_pages = write_html(
+                writer = write_html
+                if options.output_mode == "structured":
+                    from .template_writer import write_template_html
+                    writer = write_template_html
+                pages, text_characters, warnings, ocr_pages = writer(
                     pdf_path, stream, title=source.stem, dpi=options.dpi,
                     text_layer=options.text_layer, password=password,
                     max_pages=options.max_pages, max_pixels=options.max_pixels, progress=progress,

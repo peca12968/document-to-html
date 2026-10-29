@@ -4,11 +4,30 @@ Python 桌面工具與 CLI，支援 `.doc`、`.docx`、`.pdf`，輸出一份可�
 
 ## 目前採用的穩定版本
 
-2026-10-29 確認採用 `f44f4b1`（1.1.0）版本的轉換流程，唯一輸出模式為「高還原圖片」。桌面介面與命令列皆使用同一流程，不需要選擇輸出模式；後續的結構化與座標版面實驗不納入目前版本。PDF 渲染、Word 匯出及 Tesseract OCR 核心保持該版本的實作。
+高還原圖片保留 `f44f4b1`（1.1.0）的 PDF 渲染、Word 匯出及 Tesseract OCR 實作。1.3.0 另外提供「結構化 HTML＋CSS」模式，產生供專案開發使用的靜態範本。
 
-使用者後續確認的目標是「先產生可直接放入專案的靜態 HTML 範本，再由 AI 加入需要的輸入框與資料綁定」，詳細規格見 [範本輸出規格](docs/TEMPLATE_OUTPUT.md)。目前圖片模式是已確認的穩定基準，尚未提供該範本輸出功能。
+桌面介面預設「結構化 HTML＋CSS」；命令列保留 `visual` 預設值，以相容既有批次。範本先提供靜態內容，後續可由 AI 加入輸入框、資料綁定及驗證。詳細規格見 [範本輸出規格](docs/TEMPLATE_OUTPUT.md)。
 
 雙擊 [start_gui.cmd](start_gui.cmd) 啟動。啟動器會指定目前專案的原始碼路徑，避免複製專案及虛擬環境後，誤載入另一個資料夾的版本。自行使用命令列時，先在目前資料夾重新執行 `python -m pip install -e .`，不要直接沿用另一個資料夾的 editable 安裝。
+
+## 結構化 HTML＋CSS 範本
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[word,template]"
+.\.venv\Scripts\python.exe -m document_to_html "C:\Documents\表單.pdf" --output-mode structured -o "outputs\表單-template.html"
+```
+
+輸出為單一 HTML，CSS 集中在頁首，沒有 JavaScript、編輯工具列或框架依賴。使用段落、分層區段、清單、真正的表格與合併儲存格；欄位使用有 `data-label` 的文字及留白元素，初始不建立 `input`。Logo、可辨識的彩色圖形及符合範圍限制的 PDF 圖片，以 `<img src="data:image/png;base64,...">` 內嵌，不把整頁當成範本圖片。
+
+範本不使用逐字絕對座標或固定正文高度；修改段落、新增表格列會自然排版。樣式集中在 [template.css](src/document_to_html/resources/template.css)，轉換時嵌入 HTML，所以產出不依賴此檔案。原本已有的文字、金額及姓名會保留，**不會自行清除填寫資料**。
+
+勾選框與可辨識的勾記也會裁切成原稿小圖片，以 `.choice` 容器和 `data-choice` 識別碼保留，圖片使用 `.choice-image`。後續可在同一容器加入透明 checkbox 或隱藏的勾選控制層。初始範本不產生互動控制項、不推定布林值，也不移除原稿已存在的勾記；若要從空白狀態開始填寫，請提供未勾選的原稿。未成功定位的符號可能仍以 OCR 文字呈現，需與原稿核對。
+
+本機使用 RapidOCR 內附模型分析掃描頁，300 DPI 為預設分析解析度，可用 `--ocr-dpi`、`--ocr-timeout` 調整；不下載模型、不上傳文件。Tesseract 的語言與 PSM 選項只適用高還原圖片模式。缺少範本相依套件或模型時會明確回報，不改用其他引擎偷偷產生不同結果。
+
+**這是自動整理的範本初稿，仍須核對 OCR、欄位配對、勾選狀態及表格合併。** 圖形判斷採幾何與色彩規則，可能漏掉黑白掃描圖形或誤包含彩色文字；跨頁表格暫時分頁整理，列印頁數可能增加。輸出警告與原始碼註解指出部分待核對區域，並非所有錯誤都能自動偵測。此模式不保證任意 PDF 的外觀或語意完全還原。
+
+輸出是一般 `.html`，使用 `@page` 而非 `@@page`。要加入 Razor 專案時，由專案端處理 Layout、CSS 的 `@` 跳脫及文字中的 Razor 符號；不要直接將不可信文字當成 Razor 程式碼執行。
 
 ## 還原方式與限制
 

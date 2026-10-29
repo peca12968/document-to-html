@@ -14,6 +14,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("source", nargs="?", help=".pdf / .doc / .docx 檔案")
     parser.add_argument("-o", "--output", help="HTML 輸出路徑（預設與來源同名）")
     parser.add_argument("--dpi", type=int, default=200, help="影像解析度 72–600，預設 200")
+    parser.add_argument("--output-mode", choices=["visual", "structured"], default="visual",
+                        help="visual 高還原圖片（預設）；structured 結構化 HTML+CSS 範本，使用 --ocr-dpi 分析")
     parser.add_argument("--backend", choices=["auto", "word", "libreoffice"], default="auto")
     parser.add_argument("--libreoffice", help="LibreOffice 執行檔路徑")
     parser.add_argument("--timeout", type=int, default=120, help="Word 引擎逾時秒數")
@@ -43,6 +45,7 @@ def main(argv: list[str] | None = None) -> int:
             arguments.source, arguments.output, password=password,
             options=ConversionOptions(
                 dpi=arguments.dpi, backend=arguments.backend, libreoffice=arguments.libreoffice,
+                output_mode=arguments.output_mode,
                 timeout=arguments.timeout, max_pages=arguments.max_pages,
                 text_layer=not arguments.no_text_layer, overwrite=arguments.overwrite,
                 ocr=OcrOptions(mode=arguments.ocr, language=arguments.ocr_language,
