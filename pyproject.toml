@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "document-to-html"
+version = "1.0.0"
+description = "Offline, high-fidelity Word and PDF to self-contained HTML converter"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["pypdfium2==5.14.0", "Pillow==13.0.0"]
+
+[project.optional-dependencies]
+word = ["pywin32==312; sys_platform == 'win32'"]
+dev = ["pytest==9.2.0", "playwright==1.64.1"]
+
+[project.scripts]
+document-to-html = "document_to_html.cli:main"
+
+[project.gui-scripts]
+document-to-html-gui = "document_to_html.gui:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
