@@ -10,6 +10,7 @@ dist/
 !.env.example
 outputs/
 artifacts/
+*-assets-*/
 private/
 *.pdf
 *.doc

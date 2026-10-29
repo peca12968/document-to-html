@@ -18,8 +18,8 @@ class ConverterWindow:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Word / PDF → 高還原 HTML")
-        self.root.geometry("760x510")
-        self.root.minsize(640, 480)
+        self.root.geometry("820x570")
+        self.root.minsize(760, 550)
         self.source = tk.StringVar()
         self.destination = tk.StringVar()
         self.dpi = tk.StringVar(value="200")
@@ -29,7 +29,8 @@ class ConverterWindow:
         self.ocr_mode = tk.StringVar(value="自動辨識")
         self.ocr_language = tk.StringVar(value="chi_tra+eng")
         self.ocr_layout = tk.StringVar(value="自動版面")
-        self.status = tk.StringVar(value="選擇 Word 或 PDF，產生可離線開啟的單一 HTML。")
+        self.output_mode = tk.StringVar(value="版面重建 HTML")
+        self.status = tk.StringVar(value="選擇 Word 或 PDF；版面重建會產生 HTML 與 assets 資料夾。")
         self.events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.busy = False
         self.result: ConversionResult | None = None
@@ -38,7 +39,7 @@ class ConverterWindow:
         container.columnconfigure(1, weight=1)
         ttk.Label(container, text="Word / PDF → HTML", font=("Microsoft JhengHei", 20, "bold")).grid(
             row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
-        ttk.Label(container, text="保留原始頁面外觀、表格與分頁；文字層供選取與搜尋。", wraplength=650).grid(
+        ttk.Label(container, text="版面重建保留文字原位置、CSS 線條與獨立圖形，可修改並儲存；辨識結果需核對。", wraplength=700).grid(
             row=1, column=0, columnspan=3, sticky="w", pady=(0, 18))
         ttk.Label(container, text="來源檔案").grid(row=2, column=0, sticky="w", padx=(0, 10))
         ttk.Entry(container, textvariable=self.source).grid(row=2, column=1, sticky="ew")
@@ -61,19 +62,27 @@ class ConverterWindow:
         ttk.Entry(ocr_frame, textvariable=self.ocr_language, width=16).pack(side="left", padx=6)
         ttk.Label(ocr_frame, text="版面").pack(side="left", padx=(8, 0))
         ttk.Combobox(ocr_frame, textvariable=self.ocr_layout, values=["自動版面", "單一區塊", "零散文字", "直排區塊"], width=12, state="readonly").pack(side="left", padx=6)
+        mode_frame = ttk.Frame(container)
+        mode_frame.grid(row=6, column=0, columnspan=3, sticky="w", pady=8)
+        ttk.Label(mode_frame, text="輸出模式").pack(side="left")
+        mode_choice = ttk.Combobox(mode_frame, textvariable=self.output_mode,
+                                  values=["版面重建 HTML", "高還原圖片", "結構化 HTML（實驗）"], width=24, state="readonly")
+        mode_choice.pack(side="left", padx=8)
+        mode_choice.bind("<<ComboboxSelected>>", self.change_mode)
+        ttk.Label(mode_frame, text="版面重建使用獨立中文 OCR，300 DPI 分析。").pack(side="left")
         password_frame = ttk.Frame(container)
-        password_frame.grid(row=6, column=0, columnspan=3, sticky="w", pady=8)
+        password_frame.grid(row=7, column=0, columnspan=3, sticky="w", pady=8)
         ttk.Label(password_frame, text="PDF 密碼（選填）").pack(side="left")
         ttk.Entry(password_frame, textvariable=self.password, show="●", width=24).pack(side="left", padx=8)
         actions = ttk.Frame(container)
-        actions.grid(row=7, column=0, columnspan=3, sticky="w", pady=12)
+        actions.grid(row=8, column=0, columnspan=3, sticky="w", pady=12)
         self.convert_button = ttk.Button(actions, text="開始轉換", command=self.start)
         self.convert_button.pack(side="left")
         self.open_button = ttk.Button(actions, text="開啟 HTML", command=self.open_result, state="disabled")
         self.open_button.pack(side="left", padx=12)
         self.progress = ttk.Progressbar(container, mode="indeterminate")
-        self.progress.grid(row=8, column=0, columnspan=3, sticky="ew")
-        ttk.Label(container, textvariable=self.status, wraplength=680).grid(row=9, column=0, columnspan=3, sticky="w", pady=10)
+        self.progress.grid(row=9, column=0, columnspan=3, sticky="ew")
+        ttk.Label(container, textvariable=self.status, wraplength=740).grid(row=10, column=0, columnspan=3, sticky="w", pady=10)
         root.protocol("WM_DELETE_WINDOW", self.close)
         root.after(100, self.poll)
 
@@ -84,8 +93,21 @@ class ConverterWindow:
         if path:
             self.source.set(path)
             # Different extensions with the same stem must not collide.
-            source = Path(path)
-            self.destination.set(str(source.with_name(f"{source.stem}-{source.suffix[1:]}.html")))
+            self.destination.set(str(self.default_destination()))
+
+    def default_destination(self, mode=None) -> Path:
+        source = Path(self.source.get())
+        suffix = {"版面重建 HTML": "-layout", "結構化 HTML（實驗）": "-structured", "高還原圖片": ""}[mode or self.output_mode.get()]
+        return source.with_name(f"{source.stem}-{source.suffix[1:]}{suffix}.html")
+
+    def change_mode(self, event=None) -> None:
+        if self.busy or not self.source.get():
+            return
+        defaults = {str(self.default_destination(mode)) for mode in ("版面重建 HTML", "高還原圖片", "結構化 HTML（實驗）")}
+        if self.destination.get() in defaults:
+            self.destination.set(str(self.default_destination()))
+        if self.output_mode.get() != "高還原圖片":
+            self.text_layer.set(True)
 
     def choose_destination(self) -> None:
         if self.busy:
@@ -104,6 +126,7 @@ class ConverterWindow:
         if overwrite and not messagebox.askyesno("覆蓋確認", "指定 HTML 已存在，是否覆蓋？"):
             return
         options = ConversionOptions(dpi=int(self.dpi.get()), backend=self.backend.get(),
+                                    output_mode={"版面重建 HTML": "layout", "高還原圖片": "visual", "結構化 HTML（實驗）": "structured"}[self.output_mode.get()],
                                     text_layer=self.text_layer.get(), overwrite=overwrite,
                                     ocr=OcrOptions(mode={"自動辨識": "auto", "全部重辨識": "always", "關閉": "off"}[self.ocr_mode.get()],
                                                    language=self.ocr_language.get().strip(),

@@ -2,7 +2,7 @@
 cd /d "%~dp0"
 if not exist ".venv\Scripts\pythonw.exe" (
     echo Please install first: python -m venv .venv
-    echo Then run: .venv\Scripts\python.exe -m pip install -e ".[word]"
+    echo Then run: .venv\Scripts\python.exe -m pip install -e ".[word,layout]"
     pause
     exit /b 1
 )

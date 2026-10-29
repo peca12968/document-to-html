@@ -90,7 +90,7 @@ def _join_words(words: list[str]) -> str:
     return result
 
 
-def parse_tsv(data: str, width: int, height: int, minimum: float) -> tuple[OcrLine, ...]:
+def parse_tsv(data: str, width: int, height: int, minimum: float, *, group_lines: bool = True) -> tuple[OcrLine, ...]:
     groups: dict[tuple[int, ...], list[tuple[str, int, int, int, int, float]]] = {}
     reader = csv.DictReader(StringIO(data.lstrip("\ufeff")), delimiter="\t", quoting=csv.QUOTE_NONE)
     required = {"level", "page_num", "block_num", "par_num", "line_num", "left", "top", "width", "height", "conf", "text"}
@@ -114,6 +114,8 @@ def parse_tsv(data: str, width: int, height: int, minimum: float) -> tuple[OcrLi
             if right <= left or bottom <= top:
                 continue
             key = tuple(int(row[name]) for name in ("page_num", "block_num", "par_num", "line_num"))
+            if not group_lines:
+                key = (*key, index)
             groups.setdefault(key, []).append((text, left, top, right, bottom, score))
         except (ValueError, TypeError, AttributeError) as error:
             raise ConversionError("Tesseract 回傳了無效的文字座標。") from error
@@ -161,6 +163,13 @@ class TesseractEngine:
         return ["--tessdata-dir", self.options.tessdata] if self.options.tessdata else []
 
     def recognize(self, image: Image.Image) -> tuple[OcrLine, ...]:
+        return self._recognize(image, group_lines=True)
+
+    def recognize_words(self, image: Image.Image) -> tuple[OcrLine, ...]:
+        """Keep word bounds so table columns are not joined into one OCR line."""
+        return self._recognize(image, group_lines=False)
+
+    def _recognize(self, image: Image.Image, *, group_lines: bool) -> tuple[OcrLine, ...]:
         executable = self._prepare()
         with tempfile.TemporaryDirectory(prefix="document-ocr-") as temporary:
             source = Path(temporary) / "page.png"
@@ -176,4 +185,4 @@ class TesseractEngine:
             if len(result.stdout) > 32 * 1024 * 1024:
                 raise ConversionError("OCR 結果超過大小上限。")
             return parse_tsv(result.stdout.decode("utf-8", errors="replace"),
-                             image.width, image.height, self.options.min_confidence)
+                             image.width, image.height, self.options.min_confidence, group_lines=group_lines)

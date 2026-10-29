@@ -1,8 +1,49 @@
 # Word / PDF → 高還原 HTML
 
-Python 桌面工具與 CLI，支援 `.doc`、`.docx`、`.pdf`，輸出一份可直接用瀏覽器開啟的離線 HTML。適合申請書、契約、表格與需要固定版面的文件。
+Python 桌面工具與 CLI，支援 `.doc`、`.docx`、`.pdf`，輸出可直接用瀏覽器開啟的離線 HTML。適合申請書、契約、表格與需要固定版面的文件。
+
+桌面介面預設「版面重建 HTML」：文字與勾選框可編輯、線條使用 CSS、圖形另外存檔，輸出 HTML 與配套 assets 資料夾。CLI 為相容既有指令仍預設 `visual`，使用 `--output-mode layout` 啟用版面重建。
+
+**目前未達成任意掃描 PDF 一鍵產生高還原、完整語意且無須核對的 HTML。** `layout` 保留元素位置，減少表格重排失真；OCR、字型、勾選狀態與業務欄位意義仍可能出錯。以下清楚區分已重建內容與圖片保留內容，不把圖片當成結構化成果。
+
+## 掃描 PDF → 可編輯版面重建
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[word,layout]"
+.\.venv\Scripts\python.exe -m document_to_html "C:\Documents\掃描表單.pdf" -o "outputs\表單-layout.html" --output-mode layout
+```
+
+安裝後也可以雙擊 [start_gui.cmd](start_gui.cmd)，選檔、按「開始轉換」。版面模式使用套件內附的 RapidOCR / PP-OCRv6 模型，模型路徑明確指定；轉換時不下載模型、不上傳文件，也不需要 Tesseract。模型缺少會失敗回報。OCR 在子程序執行，使用 `--ocr-timeout` 限制每頁時間。`--ocr-dpi` 預設 300；Tesseract 的語言、PSM、執行檔及 tessdata 選項只適用另外兩種模式。
+
+輸出包含：
+
+- HTML：可見文字 `<span contenteditable>`、真正 `<input type="checkbox">`、CSS `border` 線條及底色。座標單位為 PDF point，依頁面原位置擺放，不重新流動排版。
+- assets 資料夾：共用 [layout.css](src/document_to_html/resources/layout.css)、[layout.js](src/document_to_html/resources/layout.js)、圖片與 `document.json`。HTML 沒有 Base64 圖片；線條不是圖片編碼。工程師可用元素 ID、`data-region` 與 JSON 座標綁定前端欄位。
+- `document.json`：逐頁元素、文字、信心分數、候選字型、勾選框、偵測到的表格儲存格群組、圖片片段及處理限制。座標和表格分組是幾何推論，不是已驗證的業務資料模型。ID 在同份輸出中固定，重新辨識不保證不變。
+- Logo / 彩色圖形：保留獨立 PNG。其他未辨識像素也保留為標示清楚的 PNG 片段。這些部分不能當成已結構化或可編輯文字；可用「標示待核對區域」查看。
+- 原稿比對：只在使用者勾選「顯示原稿比對」時顯示整頁參考 PNG，並停用編輯。正常模式及列印不使用這張圖片當背景。
+
+開啟 HTML 後可以改文字與勾選狀態，按「儲存修改後 HTML」下載修改版本，放在原 HTML 所在資料夾後重新開啟（旁邊要保留原 assets 資料夾）。也能「匯出欄位 JSON」接續前端開發。儲存不會回寫來源 PDF、呼叫 API 或自動寫入業務資料庫。覆蓋轉換使用新的 assets 資料夾，保留舊資料夾，避免破壞先前儲存的 HTML；不再使用的舊版本可自行清理。
+
+可維護性的範圍：內容、樣式、程式與圖片分離；文字與勾選框可直接綁定資料。但不是工程師人工設計的響應式頁面，也不能可靠推回所有 `table` 合併關係、欄位名稱與驗證規則。長文字會縮放至既有框內；需要自動換行、增列、重新分頁時仍須重新設計表單。
+
+字型從本機已安裝字型中比較候選與筆畫粗細，不嵌入或散布 Windows 字型；其他電腦缺少同字型會有差異。傾斜超過 5 度及文字量與位置明顯矛盾的辨識區域目前保留圖片；直排、手寫、遮擋、低清晰度與複雜底圖不保證還原。勾選框是影像幾何推論，可能與中文字形混淆。所有頁面均標記 `needs-review`，高信心分數也不是正確率。
+
+參考 [RapidOCR 官方原始碼與使用說明](https://github.com/RapidAI/RapidOCR)。套件固定版本；升級 OCR 模型後須重新核對文件與輸出格式。
+
+驗證指令：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,word,layout]"
+.\.venv\Scripts\python.exe -m pytest --browser-channel msedge --ocr-integration
+.\.venv\Scripts\python.exe scripts\verify_layout.py "C:\Documents\掃描表單.pdf" "outputs\表單-layout.html" "artifacts\layout-check"
+```
+
+驗證會檢查編輯、勾選、儲存後重新開啟、原稿比對、列印頁數、JavaScript 錯誤及網路請求，另產生逐頁截圖與前景差異圖。前景像素 F1 採 1 像素容許誤差，**不是中文字準確率、數值正確率或完整結構化比例**。不以空白背景像素比例宣稱「高度還原」。
 
 ## 還原方式與限制
+
+以下為 CLI 預設 `visual` 高還原模式。需要可編輯原位置文字與 CSS 線條時，優先使用上方 `layout`；下方舊 `structured` 模式為表格重排實驗。
 
 - PDF 由 PDFium 逐頁渲染為 **無損 PNG**，預設 200 DPI，可選 300 / 600 DPI。保留頁面外觀、線條、圖片與 PDF 中的字型呈現；HTML 內嵌圖片，無 CDN、無 JavaScript、無外部資源。
 - 在圖片上疊加透明 HTML 文字層，可選取、複製與使用瀏覽器搜尋。文字順序、選取精度取決於 PDF 文字資料；直排、旋轉文字、連字及錯誤編碼可能影響文字層，但不改變頁面影像。
@@ -53,6 +94,34 @@ PDF 輸入不需要安裝 Office。
 Windows 安裝完成後也可雙擊 [start_gui.cmd](start_gui.cmd)。選擇來源與輸出位置，設定 DPI，按「開始轉換」。完成後可按「開啟 HTML」。來源 Word 與 PDF 即使同名，介面建議的輸出名稱也會加上原副檔名，避免互相覆蓋。
 
 「圖片 OCR」提供「自動辨識／全部重辨識／關閉」，預設自動辨識。語言模型預設 `chi_tra+eng`；「版面」可選自動版面、單一區塊、零散文字或直排區塊。若簡單的橫排文字被自動版面切錯，可改選單一區塊。完成狀態會顯示執行 OCR 的頁數，低信心度結果會提出提醒。
+
+### 結構化 HTML（實驗）
+
+當你需要一般工程師能修改的 `<table>`、`<td>`、`rowspan`、`colspan` 與 CSS `border`，可安裝額外套件並選擇「輸出模式 → 結構化 HTML（實驗）」：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[structure]"
+.\.venv\Scripts\python.exe -m document_to_html "C:\Documents\申請書.pdf" -o "outputs\申請書-structured.html" --output-mode structured
+```
+
+- 使用 `--ocr-dpi`（預設 300）分析頁面格線；此模式不使用 `--dpi`。Word 會先匯出 PDF。
+- 完整閉合格線重建為表格，合併儲存格轉成 `rowspan` / `colspan`；未形成表格的長線段以 CSS 邊框呈現，文字以可見段落定位。沒有背景圖片、Base64 圖片或透明 SVG 文字層。
+- 原生文字保留；掃描內容使用 Tesseract。偵測到的儲存格會分開辨識，避免跨欄合併文字。自動版面（PSM 3）在儲存格內改用單一區塊（PSM 6）；其他 PSM 依使用者設定。單頁 OCR 共用 `--ocr-timeout` 時間上限。
+- 可點擊文字或空白儲存格直接試改。這是 `contenteditable` 預覽，**不會自動儲存、回寫原 PDF 或建立業務欄位綁定**；重新載入會還原。需留存可列印目前頁面。輸入長文字後請再次核對列高、重疊與分頁。
+- 原始碼有縮排、區塊註解、表格及儲存格 ID。ID 只用於這次輸出，重新辨識可能變動；工程師仍須定義正式欄位名稱、資料模型、驗證與儲存流程。
+- **這是實驗性的結構重建，不保證像素一致。** 中文字型、文字順序、格線顏色與粗細可能改變；Logo、照片、印章、手寫筆跡與底色不保留。勾選符號可能被 OCR 認錯，不會自動生成可信的勾選欄位。無格線表格、斜線、傾斜掃描與直排文字尚未可靠支援。
+- 跨頁表格逐頁獨立，必要時在頁緣補框；漏線可能造成錯誤合併。未辨識到完整儲存格的區域以虛線標記，低信心文字以橙色點線提示，兩者皆須人工核對。不能將 OCR 金額或勾選結果直接當成已驗證資料。
+- 使用固定紙張寬度，窄螢幕以水平捲動檢視。瀏覽器列印請選原始尺寸並關閉頁首／頁尾；大量修改後不保證原分頁。
+
+格線偵測參考 [OpenCV 官方形態學線段擷取說明](https://docs.opencv.org/4.13.0/dd/dd7/tutorial_morph_lines_detection.html)。HTML 不含 JavaScript 或遠端請求；所有辨識在本機執行。
+
+開發驗證（需已安裝 OCR 與瀏覽器）：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,structure]"
+.\.venv\Scripts\python.exe -m pytest --browser-channel msedge --ocr-integration
+.\.venv\Scripts\python.exe scripts\verify_structured.py "outputs\申請書-structured.html" --output artifacts\structured-browser
+```
 
 ## 命令列
 

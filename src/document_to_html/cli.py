@@ -10,10 +10,12 @@ from .ocr import OcrOptions
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="將 Word / PDF 轉為單一離線高還原 HTML。")
+    parser = argparse.ArgumentParser(description="將 Word / PDF 轉為離線 HTML：原稿影像、表格或可編輯版面重建。")
     parser.add_argument("source", nargs="?", help=".pdf / .doc / .docx 檔案")
     parser.add_argument("-o", "--output", help="HTML 輸出路徑（預設與來源同名）")
     parser.add_argument("--dpi", type=int, default=200, help="影像解析度 72–600，預設 200")
+    parser.add_argument("--output-mode", choices=["visual", "structured", "layout"], default="visual",
+                        help="visual 頁面影像；structured 實驗性表格重排；layout 原位置文字/CSS/獨立圖形，另產生 assets 資料夾")
     parser.add_argument("--backend", choices=["auto", "word", "libreoffice"], default="auto")
     parser.add_argument("--libreoffice", help="LibreOffice 執行檔路徑")
     parser.add_argument("--timeout", type=int, default=120, help="Word 引擎逾時秒數")
@@ -43,6 +45,7 @@ def main(argv: list[str] | None = None) -> int:
             arguments.source, arguments.output, password=password,
             options=ConversionOptions(
                 dpi=arguments.dpi, backend=arguments.backend, libreoffice=arguments.libreoffice,
+                output_mode=arguments.output_mode,
                 timeout=arguments.timeout, max_pages=arguments.max_pages,
                 text_layer=not arguments.no_text_layer, overwrite=arguments.overwrite,
                 ocr=OcrOptions(mode=arguments.ocr, language=arguments.ocr_language,
@@ -59,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
         print("已取消轉換。", file=sys.stderr)
         return 130
     print(f"完成：{result.output}\n頁數：{result.pages}；引擎：{result.backend}")
+    if result.assets:
+        print(f"資源資料夾：{result.assets}（請與 HTML 一起保留）")
     if result.ocr_pages:
         print(f"已執行 OCR 頁數：{len(result.ocr_pages)}；辨識內容請核對原始影像。")
     for warning in result.warnings:
