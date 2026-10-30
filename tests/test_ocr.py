@@ -1,4 +1,5 @@
 import base64
+from dataclasses import replace
 from contextlib import closing
 from io import BytesIO
 from pathlib import Path
@@ -45,8 +46,9 @@ def test_tsv_chinese_join_bounds_confidence_and_literal_text():
         "5\t1\t1\t1\t4\t1\t10\t20\t30\t40\tnan\tinvalid\n"
     )
     lines = parse_tsv(data, 100, 100, 0)
-    assert lines[0] == OcrLine("申購申請書", 10, 20, 80, 40, 50)
-    assert lines[1] == OcrLine("<script>", 0, 80, 45, 20, 90)
+    assert replace(lines[0], words=()) == OcrLine("申購申請書", 10, 20, 80, 40, 50)
+    assert replace(lines[1], words=()) == OcrLine("<script>", 0, 80, 45, 20, 90)
+    assert [(word.text, word.left, word.width) for word in lines[0].words] == [("申購", 10, 30), ("申請書", 40, 50)]
     assert len(lines) == 2
     assert parse_tsv(data, 100, 100, 60)[0].text == "申購"
 

@@ -28,4 +28,4 @@ jobs:
       - run: python -m pip install -e ".[dev,template]"
       - run: python -m playwright install --with-deps chromium
       - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-tra fonts-noto-cjk
-      - run: python -m pytest tests/test_browser.py tests/test_ocr.py tests/test_template.py tests/test_native_template.py --browser-channel chromium --ocr-integration
+      - run: python -m pytest tests/test_browser.py tests/test_ocr.py tests/test_template.py tests/test_native_template.py tests/test_visual_text.py --browser-channel chromium --ocr-integration

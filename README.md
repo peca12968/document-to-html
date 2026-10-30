@@ -4,9 +4,11 @@ Python 桌面工具與 CLI，支援 `.doc`、`.docx`、`.pdf`，輸出一份可�
 
 ## 目前採用的穩定版本
 
-高還原圖片保留 `f44f4b1`（1.1.0）的 PDF 渲染、Word 匯出及 Tesseract OCR 實作。1.3.0 另外提供「結構化 HTML＋CSS」模式，產生供專案開發使用的靜態範本。
+高還原圖片沿用 `f44f4b1`（1.1.0）的 PDF 渲染與 Word 匯出。1.3.0 另外提供「結構化 HTML＋CSS」模式，產生供專案開發使用的靜態範本。
 
 1.3.1 修正原生文字 PDF 的表單編排：優先讀取字級、向量框線與欄列尺寸，保留紅字、紅框、虛線、直排側註及簽章留白。圖片與勾選區仍是內嵌 PNG，正文與框線是可維護的 HTML＋CSS。
+
+1.3.2 改善「高還原圖片」的透明文字層：原生文字保留每字起點，OCR 保留每詞範圍，減少整行拉伸與跨欄串字。有安裝 `[template]` 時，共用範本模式的表格偵測，依儲存格分組、排序；沒有安裝時仍可轉換，以基線及間距分組。頁面 PNG 不變，文字層仍採 SVG 以保留旋轉及位置精度，沒有改成可編輯的可見表格，也沒有更換 OCR 引擎。
 
 桌面介面預設「結構化 HTML＋CSS」；命令列保留 `visual` 預設值，以相容既有批次。範本先提供靜態內容，後續可由 AI 加入輸入框、資料綁定及驗證。詳細規格見 [範本輸出規格](docs/TEMPLATE_OUTPUT.md)。
 
@@ -38,7 +40,7 @@ Python 桌面工具與 CLI，支援 `.doc`、`.docx`、`.pdf`，輸出一份可�
 ## 還原方式與限制
 
 - PDF 由 PDFium 逐頁渲染為 **無損 PNG**，預設 200 DPI，可選 300 / 600 DPI。保留頁面外觀、線條、圖片與 PDF 中的字型呈現；HTML 內嵌圖片，無 CDN、無 JavaScript、無外部資源。
-- 在圖片上疊加透明 HTML 文字層，可選取、複製與使用瀏覽器搜尋。文字順序、選取精度取決於 PDF 文字資料；直排、旋轉文字、連字及錯誤編碼可能影響文字層，但不改變頁面影像。
+- 在圖片上疊加透明 SVG 文字層，可選取、複製與使用瀏覽器搜尋。`text-region` 搭配 `data-table`、`data-row`、`data-column` 標示已辨識的儲存格；原生文字以座標列表保留逐字起點，OCR 以 `tspan` 保留詞的位置。文字順序、選取精度仍取決於來源資料及表格辨識結果；直排、連字及錯誤編碼可能影響文字層，但不改變頁面影像。
 - Word 先使用 **Microsoft Word** 或 **LibreOffice** 匯出 PDF，再使用相同流程。`auto` 優先 Word，只有 Word 不可用才改用 LibreOffice；文件轉換失敗不會悄悄改換引擎。
 - **這是固定版面的視覺還原，不是可編輯的語意 HTML 表格。** 放大超過輸出解析度會看見像素；HTML 的圖片不是向量。高 DPI 可提高清晰度，但檔案較大。
 - Word 排版取決於 Office 引擎、版本與已安裝字型。若已經有正確的原始 PDF，直接轉 PDF 通常比重新排版 Word 更一致。LibreOffice 和 Word 的換頁位置可能不同，不保證兩者與既有 PDF 一致。
@@ -185,7 +187,7 @@ PDFium 不是 thread-safe；同一程序內請循序呼叫 API。大量平行工
 - [轉換流程](src/document_to_html/converter.py)：驗證、暫存資料與安全發布。
 - [Office 引擎](src/document_to_html/backends.py)：Word / LibreOffice adapters。
 - [HTML 產生器](src/document_to_html/html_writer.py)：PDFium 圖像、文字座標與列印樣式。
-- [OCR 引擎](src/document_to_html/ocr.py)：Tesseract 呼叫、TSV 解析與辨識選項；[OCR 文字層](src/document_to_html/ocr_layer.py)：原生文字遮蔽與座標對齊。
+- [OCR 引擎](src/document_to_html/ocr.py)：Tesseract 呼叫、TSV 解析與辨識選項；[OCR 文字層](src/document_to_html/ocr_layer.py)：原生文字遮蔽；[文字層分組](src/document_to_html/visual_text.py)：共用儲存格偵測、閱讀順序及座標對齊。
 - [桌面介面](src/document_to_html/gui.py) 與 [命令列](src/document_to_html/cli.py)。
 
 第三方元件授權請見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

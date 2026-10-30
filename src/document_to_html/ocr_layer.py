@@ -1,7 +1,6 @@
 """OCR selection and overlay generation without modifying the displayed image."""
 
 from contextlib import closing
-from html import escape
 import math
 
 from PIL import ImageDraw
@@ -9,6 +8,7 @@ import pypdfium2 as pdfium
 
 from .errors import ConversionError
 from .ocr import OcrEngine, OcrOptions
+from .visual_text import detect_text_regions, make_recognized_layer
 
 
 def needs_ocr(page: pdfium.PdfPage, native_count: int, mode: str) -> bool:
@@ -29,6 +29,7 @@ def make_ocr_layer(page: pdfium.PdfPage, options: OcrOptions, engine: OcrEngine,
         raise ConversionError("OCR 頁面影像超過尺寸上限；請降低 --ocr-dpi。")
     with closing(page.render(scale=scale, fill_color=(255, 255, 255, 255))) as bitmap:
         with bitmap.to_pil() as original, original.convert("RGB") as recognition_image:
+            regions = detect_text_regions(original, page, bitmap)
             if options.mode == "auto":
                 # Mask only the recognition copy. Native text and visible PNG
                 # stay intact; a scanned section on the same page remains visible.
@@ -48,13 +49,5 @@ def make_ocr_layer(page: pdfium.PdfPage, options: OcrOptions, engine: OcrEngine,
                         if x1 >= x0 and y1 >= y0:
                             drawing.rectangle((x0, y0, x1, y1), fill="white")
             lines = engine.recognize(recognition_image)
-        fragments = [f'<svg class="text-layer ocr-layer" data-text-source="ocr" '
-                     f'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {bitmap.width} {bitmap.height}" preserveAspectRatio="none">']
-        for line in lines:
-            fragments.append(
-                f'<text class="text-line" data-confidence="{line.confidence:.2f}" '
-                f'x="{line.left}" y="{line.top + line.height}" font-size="{line.height}" '
-                f'textLength="{line.width}" lengthAdjust="spacingAndGlyphs">{escape(line.text)}</text>'
-            )
-        fragments.append("</svg>")
-        return "".join(fragments), sum(len(line.text.strip()) for line in lines), sum(line.confidence < 60 for line in lines)
+        layer = make_recognized_layer(lines, bitmap.width, bitmap.height, regions)
+        return layer, sum(len(line.text.strip()) for line in lines), sum(line.confidence < 60 for line in lines)

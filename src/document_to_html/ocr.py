@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import StringIO
 import math
 import os
@@ -45,13 +45,19 @@ class OcrOptions:
 
 
 @dataclass(frozen=True)
-class OcrLine:
+class OcrWord:
     text: str
     left: int
     top: int
     width: int
     height: int
     confidence: float
+
+
+@dataclass(frozen=True)
+class OcrLine(OcrWord):
+    # Keep TSV geometry instead of stretching every word across one line box.
+    words: tuple[OcrWord, ...] = field(default=(), kw_only=True)
 
 
 class OcrEngine(Protocol):
@@ -124,7 +130,9 @@ def parse_tsv(data: str, width: int, height: int, minimum: float) -> tuple[OcrLi
         # Report the weakest retained word so a mixed-quality line is not hidden
         # by an average dominated by easy words.
         lines.append(OcrLine(_join_words([word[0] for word in words]), left, top,
-                             right - left, bottom - top, min(word[5] for word in words)))
+                             right - left, bottom - top, min(word[5] for word in words),
+                             words=tuple(OcrWord(text, x0, y0, x1-x0, y1-y0, score)
+                                         for text, x0, y0, x1, y1, score in words)))
     if sum(len(line.text) for line in lines) > 200_000:
         raise ConversionError("OCR 結果超過單頁文字量上限。")
     return tuple(lines)
