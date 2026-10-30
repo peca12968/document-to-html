@@ -1,0 +1,27 @@
+/* 原生 PDF 表單：文字與表格正常排版，增加內容時可自然向下延伸。 */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #fff; }
+body { font-family: "DFKai-SB", "BiauKai", "KaiTi", serif; color: #000; font-size: 10pt; }
+.document { margin: 0; }
+.source-page { margin: 0 auto; break-before: page; }
+.source-page:first-child { break-before: auto; }
+.page-columns { display: grid; align-items: start; }
+.page-main { min-width: 0; }
+.form-block { padding: 0; }
+p, h1, h2 { margin: 0; padding: 0; font-weight: normal; overflow-wrap: anywhere; }
+.source-table { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0; }
+:where(.source-table td, .source-table th) { padding: 0; border: .5pt solid #000; vertical-align: top; font-weight: normal; line-height: 1; text-align: left; }
+.source-figure { margin: 0; }
+.source-figure img { max-width: 100%; height: auto; }
+.source-table tr { break-inside: avoid; }
+.text-gap { display: inline-block; }
+.line-label { min-width: 0; flex: 0 1 auto; }
+.fill-line { display: inline-block; flex: 1 1 auto; border-bottom: .5pt solid #000; min-height: .8em; }
+.choice { display: inline; }
+.choice-image { width: .95em; height: .95em; object-fit: contain; vertical-align: -.1em; }
+.source-symbol { width: .95em; height: .95em; object-fit: contain; vertical-align: -.1em; }
+.side-note { writing-mode: vertical-rl; text-orientation: upright; line-height: 1.05; }
+.side-note .text-gap { display: none; }
+@media screen and (max-width: 700px) {
+    .document { overflow-x: auto; }
+}

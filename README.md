@@ -6,6 +6,8 @@ Python 桌面工具與 CLI，支援 `.doc`、`.docx`、`.pdf`，輸出一份可�
 
 高還原圖片保留 `f44f4b1`（1.1.0）的 PDF 渲染、Word 匯出及 Tesseract OCR 實作。1.3.0 另外提供「結構化 HTML＋CSS」模式，產生供專案開發使用的靜態範本。
 
+1.3.1 修正原生文字 PDF 的表單編排：優先讀取字級、向量框線與欄列尺寸，保留紅字、紅框、虛線、直排側註及簽章留白。圖片與勾選區仍是內嵌 PNG，正文與框線是可維護的 HTML＋CSS。
+
 桌面介面預設「結構化 HTML＋CSS」；命令列保留 `visual` 預設值，以相容既有批次。範本先提供靜態內容，後續可由 AI 加入輸入框、資料綁定及驗證。詳細規格見 [範本輸出規格](docs/TEMPLATE_OUTPUT.md)。
 
 雙擊 [start_gui.cmd](start_gui.cmd) 啟動。啟動器會指定目前專案的原始碼路徑，避免複製專案及虛擬環境後，誤載入另一個資料夾的版本。自行使用命令列時，先在目前資料夾重新執行 `python -m pip install -e .`，不要直接沿用另一個資料夾的 editable 安裝。
@@ -20,6 +22,10 @@ Python 桌面工具與 CLI，支援 `.doc`、`.docx`、`.pdf`，輸出一份可�
 輸出為單一 HTML，CSS 集中在頁首，沒有 JavaScript、編輯工具列或框架依賴。使用段落、分層區段、清單、真正的表格與合併儲存格；欄位使用有 `data-label` 的文字及留白元素，初始不建立 `input`。Logo、可辨識的彩色圖形及符合範圍限制的 PDF 圖片，以 `<img src="data:image/png;base64,...">` 內嵌，不把整頁當成範本圖片。
 
 範本不使用逐字絕對座標或固定正文高度；修改段落、新增表格列會自然排版。樣式集中在 [template.css](src/document_to_html/resources/template.css)，轉換時嵌入 HTML，所以產出不依賴此檔案。原本已有的文字、金額及姓名會保留，**不會自行清除填寫資料**。
+
+原生表單使用 [native-template.css](src/document_to_html/resources/native-template.css)，以 `colgroup`、`rowspan`、`colspan` 保留欄列比例，集中產生可共用的字級、顏色及間距類別。頁面使用最小高度，表格列高度保留原稿留白；內容增加時仍可長高。範本不是逐字定位，也不把整頁改成圖片。原生表單在窄螢幕保留紙張寬度並提供水平捲動，避免表格比例被擠壓。
+
+目前優先採用原生編排的條件是每頁具有足夠文字、未旋轉、沒有巢狀 Form XObject，且沒有占頁面大面積的掃描圖片；其餘文件繼續使用原有的掃描／一般範本流程。`--ocr always` 仍強制使用 OCR 流程。Wingdings 等私人字元以 `.source-symbol` 小圖片保留，與 `.choice` 勾選容器分開，避免把圈號數字誤當成 checkbox。
 
 勾選框與可辨識的勾記也會裁切成原稿小圖片，以 `.choice` 容器和 `data-choice` 識別碼保留，圖片使用 `.choice-image`。後續可在同一容器加入透明 checkbox 或隱藏的勾選控制層。初始範本不產生互動控制項、不推定布林值，也不移除原稿已存在的勾記；若要從空白狀態開始填寫，請提供未勾選的原稿。未成功定位的符號可能仍以 OCR 文字呈現，需與原稿核對。
 

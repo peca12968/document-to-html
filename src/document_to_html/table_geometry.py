@@ -85,7 +85,7 @@ def _table(rectangles, tolerance):
     return Table(columns, rows, tuple(cells))
 
 
-def detect_structure(image: Image.Image) -> Structure:
+def detect_structure(image: Image.Image, *, rules_only=False, include_single_cells=False) -> Structure:
     try:
         import cv2
         import numpy as np
@@ -95,6 +95,13 @@ def detect_structure(image: Image.Image) -> Structure:
         gray = np.array(grayscale)
     height, width = gray.shape
     binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 25, 3)
+    if rules_only:
+        # Native vector paths contain no character strokes. Join dashed rules
+        # before opening, which otherwise removes every individual dash.
+        reach = max(3, round(width/250))
+        binary = cv2.bitwise_or(
+            cv2.morphologyEx(binary, cv2.MORPH_CLOSE, np.ones((1,reach),np.uint8)),
+            cv2.morphologyEx(binary, cv2.MORPH_CLOSE, np.ones((reach,1),np.uint8)))
     horizontal = cv2.morphologyEx(binary, cv2.MORPH_OPEN,
                                   cv2.getStructuringElement(cv2.MORPH_RECT, (max(40, width // 25), 1)))
     vertical = cv2.morphologyEx(binary, cv2.MORPH_OPEN,
@@ -144,9 +151,12 @@ def detect_structure(image: Image.Image) -> Structure:
                 if cv2.contourArea(contour) >= w * h * 0.85:
                     groups.setdefault(parent, []).append(Rect(x, y, x + w - 1, y + h - 1))
     tables = []
-    tolerance = max(6, round(width / 200))
+    # Native filled borders expose both edges of a thick rule. Snap those edges
+    # together so a red overlay does not become an extra, nearly empty column.
+    tolerance = max(6, round(width / (160 if rules_only else 200)))
     for rectangles in groups.values():
-        if len(rectangles) >= 2:
+        if len(rectangles) >= 2 or (include_single_cells and len(rectangles)==1
+                                   and rectangles[0].width*rectangles[0].height>width*height*.02):
             table = _table(rectangles, tolerance)
             if table:
                 tables.append(table)

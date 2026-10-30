@@ -204,6 +204,10 @@ def write_template_html(pdf_path, stream, *, title, dpi, text_layer, password,
         if not 0 < page_count <= max_pages:
             raise ConversionError("PDF 頁數超過上限。")
         document.init_forms()
+        from .template_native import supports_native_layout, write_native_document
+        if supports_native_layout(document, options.mode):
+            return write_native_document(document,stream,title=title,options=options,
+                                         max_pixels=max_pixels,progress=progress)
         for index in range(page_count):
             with closing(document[index]) as page:
                 width, height = page.get_size()

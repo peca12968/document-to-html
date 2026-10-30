@@ -8,7 +8,7 @@ def pytest_addoption(parser):
     parser.addoption("--ocr-integration", action="store_true", help="Run real Tesseract OCR integration checks")
 
 
-def make_pdf(path: Path, *, rotation: int = 0, text: bool = True, pages: int = 2) -> Path:
+def make_pdf(path: Path, *, rotation: int = 0, text: bool = True, pages: int = 2, page_content: bytes | None = None) -> Path:
     """Build a tiny synthetic PDF; no customer documents or external fixture files."""
     objects = [b"", b"", b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
     page_ids = []
@@ -19,6 +19,8 @@ def make_pdf(path: Path, *, rotation: int = 0, text: bool = True, pages: int = 2
         content = b"0.1 0.3 0.7 RG 2 w 15 15 210 290 re S\n"
         if text:
             content += f"BT /F1 18 Tf 30 250 Td (Hello HTML {index + 1}) Tj ET\n".encode()
+        if page_content is not None:
+            content=page_content
         objects.extend([
             f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 240 320] /Rotate {rotation} /Resources << /Font << /F1 3 0 R >> >> /Contents {content_id} 0 R >>".encode(),
             f"<< /Length {len(content)} >>\nstream\n".encode() + content + b"endstream",

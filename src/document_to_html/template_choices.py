@@ -12,7 +12,7 @@ CHOICE_CHARACTERS = frozenset("□☑☒✅○◯〇✓✔0OQ")
 EXPLICIT_MARKS = frozenset("□☑☒✅○◯✓✔")
 
 
-def preserve_choices(image, regions, page_number, excluded=()):
+def preserve_choices(image, regions, page_number, excluded=(), *, strict_text_overlap=False):
     import cv2
     import numpy as np
 
@@ -42,6 +42,11 @@ def preserve_choices(image, regions, page_number, excluded=()):
         if cv2.contourArea(contour)<width*height*.65:
             continue
         bounds=Rect(left,top,left+width,top+height)
+        if strict_text_overlap and any(
+            max(0,min(bounds.right,word.left+word.width)-max(bounds.left,word.left))
+            *max(0,min(bounds.bottom,word.top+word.height)-max(bounds.top,word.top))>width*height*.25
+            and any(char not in CHOICE_CHARACTERS for char in word.text.strip()) for word in characters):
+            continue
         if is_masked((left+width/2, top+height/2)):
             continue
         if any(region.contains(left+width/2,top+height/2) for region in excluded):
