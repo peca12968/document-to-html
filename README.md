@@ -47,6 +47,16 @@ Python 桌面工具與 CLI，支援 `.doc`、`.docx`、`.pdf`，輸出一份可�
 - 掃描文件可透過本機 Tesseract 辨識繁體中文與英文，再疊加透明 SVG 文字層。預設自動處理無文字頁面及包含圖片的混合頁面，保留原始頁面影像。PDF 表單會呈現目前的外觀，但不轉為互動表單；連結、附件、批註互動與巨集不會帶入 HTML。
 - 瀏覽器列印會依各頁原始尺寸設定紙張。請使用 100% 縮放、關閉瀏覽器頁首與頁尾；混合紙張尺寸仍受瀏覽器與印表機支援限制。
 
+## 重現兩種輸出
+
+在安裝 `.[template]` 的環境執行下列指令。`sample-output` 是新目錄，會取得一頁合成申請表 `sample-form.pdf` 和兩份可離線開啟的 `visual.html`、`structured.html`。
+
+```sh
+python -m scripts.export_demo --directory sample-output
+```
+
+圖片版保留 320 × 427 像素的頁面影像，瀏覽器可搜尋 `Signature`。結構版的 `Name` 與 `Example` 是同列的 HTML 儲存格。示範資料由實際轉檔輸出擷取，包含來源 SHA-256、PNG、可搜尋文字和表格欄列。Playwright 另開啟兩份原始輸出，驗證圖片解碼、瀏覽器搜尋及表格語意。[展示資料](examples/conversion-demo.json) · [瀏覽器驗證](tests/test_export_demo.py)
+
 ## 安裝
 
 需要 **Python 3.11 以上**。Windows 建議使用 python.org 的 Python（包含 Tkinter）；Linux GUI 另外安裝系統的 `python3-tk`。
