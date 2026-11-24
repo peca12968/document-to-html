@@ -57,6 +57,18 @@ python -m scripts.export_demo --directory sample-output
 
 圖片版保留 320 × 427 像素的頁面影像，瀏覽器可搜尋 `Signature`。結構版的 `Name` 與 `Example` 是同列的 HTML 儲存格。示範資料由實際轉檔輸出擷取，包含來源 SHA-256、PNG、可搜尋文字和表格欄列。Playwright 另開啟兩份原始輸出，驗證圖片解碼、瀏覽器搜尋及表格語意。[展示資料](examples/conversion-demo.json) · [瀏覽器驗證](tests/test_export_demo.py)
 
+### 只轉換指定頁面
+
+```sh
+python -m document_to_html source.pdf --pages 2,5-7 -o excerpt.html
+python -m document_to_html source.pdf --pages 2,5-7 --output-mode structured -o excerpt-template.html
+python -m scripts.export_page_demo --directory selected-output
+```
+
+頁碼從 1 開始，可用逗號分隔單頁和含頭尾的範圍。輸出按來源頁碼排列，重複頁碼只輸出一次。`--max-pages` 限制輸出頁數。Word 先經選定的排版引擎匯出 PDF，頁碼以該次匯出的結果為準。桌面介面可在「頁碼」輸入相同格式，留空會轉換全部。
+
+兩種輸出都保留原頁碼。進度顯示已處理的選取頁數，OCR 提醒仍使用來源頁碼。輸入超過來源頁數等無效範圍時，既有 HTML 會保留。示範從四頁合成文件選取 `4,2`，兩種輸出都依來源順序留下第 2、4 頁，圖片版可直接在瀏覽器搜尋和列印這兩頁。[實際展示資料](examples/page-selection-demo.json) · [選頁驗證](tests/test_page_selection.py)
+
 ## 安裝
 
 需要 **Python 3.11 以上**。Windows 建議使用 python.org 的 Python（包含 Tkinter）；Linux GUI 另外安裝系統的 `python3-tk`。

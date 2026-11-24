@@ -1,0 +1,28 @@
+{
+  "source_pages": 4,
+  "selection": "4,2",
+  "visual": [
+    {
+      "number": 2,
+      "label": "\u7b2c 2 \u9801",
+      "text": "Hello HTML 2"
+    },
+    {
+      "number": 4,
+      "label": "\u7b2c 4 \u9801",
+      "text": "Hello HTML 4"
+    }
+  ],
+  "structured": [
+    {
+      "number": 2,
+      "label": "\u4f86\u6e90\u7b2c 2 \u9801",
+      "text": "Hello HTML 2"
+    },
+    {
+      "number": 4,
+      "label": "\u4f86\u6e90\u7b2c 4 \u9801",
+      "text": "Hello HTML 4"
+    }
+  ]
+}

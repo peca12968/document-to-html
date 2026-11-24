@@ -50,10 +50,11 @@ def _color(function, *arguments):
     return tuple(channel.value for channel in channels[:3])
 
 
-def supports_native_layout(document, mode):
+def supports_native_layout(document, mode, *, indices=None):
     if mode == "always":
         return False
-    for index in range(len(document)):
+    indices = range(len(document)) if indices is None else indices
+    for index in indices:
         with closing(document[index]) as page, closing(page.get_textpage()) as text:
             if page.get_rotation()!=0 or text.count_chars()<30:
                 return False
@@ -344,14 +345,15 @@ class NativeRenderer:
                    f'src="data:image/png;base64,{node["data"]}" alt="{escape(node["alt"])}"></figure>')
 
 
-def write_native_document(document, stream, *, title, options, max_pixels, progress):
+def write_native_document(document, stream, *, title, options, max_pixels, progress, indices=None):
+    indices = range(len(document)) if indices is None else indices
     scale=options.dpi/72
     warnings=['原生 PDF 範本保留字級、欄寬、列高與區塊間距；字型替代、複雜表格及列印結果仍請核對原稿。']
     characters=0
     with tempfile.TemporaryFile(mode='w+',encoding='utf-8',newline='\n') as body:
         renderer=NativeRenderer(body,{},scale)
         page_size=None
-        for index in range(len(document)):
+        for position, index in enumerate(indices, 1):
             with closing(document[index]) as page:
                 width,height=page.get_size()
                 if not math.isfinite(width*height) or min(width,height)<=0 or math.ceil(width*scale)*math.ceil(height*scale)>max_pixels:
@@ -402,7 +404,7 @@ def write_native_document(document, stream, *, title, options, max_pixels, progr
                         properties={'width':f'{width:.2f}pt','min-height':f'{height-.5:.2f}pt',
                             'padding':f'{renderer.pt(top)} {renderer.pt(bitmap.width-page_right)} 2pt {renderer.pt(left)}'}
                         renderer.write(8,f'<!-- 原稿第 {index+1} 頁：正常文件流，表格可直接維護。 -->')
-                        renderer.write(8,f'<article{renderer.attributes(properties,"source-page")} aria-label="第 {index+1} 頁">')
+                        renderer.write(8,f'<article{renderer.attributes(properties,"source-page")} aria-label="第 {index+1} 頁" data-page="{index+1}">')
                         if sidebar:
                             gap=max(1,min(w.left for w in sidebar)-right)
                             renderer.write(12,f'<div{renderer.attributes({"grid-template-columns":f"minmax(0, 1fr) {renderer.pt(page_right-right-gap)}","column-gap":renderer.pt(gap)},"page-columns")}>')
@@ -447,7 +449,7 @@ def write_native_document(document, stream, *, title, options, max_pixels, progr
                             renderer.write(16,f'<aside{renderer.attributes(style,"side-note")}>{renderer.rich_text(ordered)}</aside>')
                             renderer.write(12,'</div>')
                         renderer.write(8,'</article>')
-                        if index==0 and native:
+                        if position==1 and native:
                             rows=renderer.rows(native)
                             first=max((row for row in rows if min(w.top for w in row)<bitmap.height*.08),
                                       key=lambda row:max(w.font_size for w in row),default=[])
@@ -457,7 +459,7 @@ def write_native_document(document, stream, *, title, options, max_pixels, progr
                         warnings.extend(structure.warnings)
                     finally:
                         structure.cleaned.close()
-            if progress: progress(index+1,len(document))
+            if progress: progress(position,len(indices))
         from pathlib import Path
         css=Path(__file__).with_name('resources').joinpath('native-template.css').read_text(encoding='utf-8')
         stream.write('<!doctype html>\n<html lang="zh-TW">\n<head>\n    <meta charset="utf-8">\n'
@@ -471,4 +473,4 @@ def write_native_document(document, stream, *, title, options, max_pixels, progr
         stream.write('    </style>\n</head>\n<body>\n    <main class="document">\n')
         body.seek(0);shutil.copyfileobj(body,stream)
         stream.write('    </main>\n</body>\n</html>\n')
-    return len(document),characters,tuple(dict.fromkeys(warnings)),()
+    return len(indices),characters,tuple(dict.fromkeys(warnings)),()

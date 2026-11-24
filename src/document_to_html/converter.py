@@ -14,6 +14,7 @@ from .backends import export_word
 from .errors import ConversionError
 from .html_writer import write_html
 from .ocr import OcrOptions
+from .page_selection import parse_page_ranges
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,7 @@ class ConversionOptions:
     max_input_bytes: int = 100 * 1024 * 1024
     ocr: OcrOptions = field(default_factory=OcrOptions)
     output_mode: str = "visual"
+    pages: str | None = None
 
     def validate(self) -> None:
         self.ocr.validate()
@@ -62,6 +64,7 @@ def convert(
     """Convert one document. Serialize concurrent calls: PDFium is not thread-safe."""
     options = options or ConversionOptions()
     options.validate()
+    page_ranges = parse_page_ranges(options.pages)
     source = Path(source).expanduser().resolve()
     if not source.is_file():
         raise ConversionError("找不到輸入檔案。")
@@ -101,7 +104,7 @@ def convert(
                     pdf_path, stream, title=source.stem, dpi=options.dpi,
                     text_layer=options.text_layer, password=password,
                     max_pages=options.max_pages, max_pixels=options.max_pixels, progress=progress,
-                    ocr=options.ocr,
+                    ocr=options.ocr, page_ranges=page_ranges,
                 )
             if options.overwrite:
                 os.replace(temporary_output, destination)

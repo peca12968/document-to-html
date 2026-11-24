@@ -15,6 +15,7 @@ import pypdfium2 as pdfium
 from .errors import ConversionError
 from .ocr import OcrOptions, TesseractEngine
 from .ocr_layer import make_ocr_layer, needs_ocr
+from .page_selection import select_indices
 from .visual_text import make_native_layer
 
 STYLE = """
@@ -35,7 +36,7 @@ def write_html(
     pdf_path: Path, stream: TextIO, *, title: str, dpi: int,
     text_layer: bool, password: str | None, max_pages: int,
     max_pixels: int, progress: Callable[[int, int], None] | None,
-    ocr: OcrOptions | None = None,
+    ocr: OcrOptions | None = None, page_ranges: tuple[tuple[int, int], ...] | None = None,
 ) -> tuple[int, int, tuple[str, ...], tuple[int, ...]]:
     ocr = ocr or OcrOptions()
     ocr.validate()
@@ -48,9 +49,8 @@ def write_html(
     warnings: list[str] = []
     text_characters = 0
     with document:
-        page_count = len(document)
-        if not 0 < page_count <= max_pages:
-            raise ConversionError(f"PDF 頁數必須介於 1 與 {max_pages} 頁之間。")
+        indices = select_indices(len(document), max_pages, page_ranges)
+        page_count = len(indices)
         document.init_forms()
         stream.write(
             '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">'
@@ -61,7 +61,7 @@ def write_html(
             f'<header><h1>{escape(title)}</h1><p>{page_count} 頁 · {dpi} DPI · '
             '離線高還原 HTML · 可使用瀏覽器列印或搜尋</p></header><main>'
         )
-        for index in range(page_count):
+        for position, index in enumerate(indices, 1):
             with closing(document[index]) as page:
                 width, height = page.get_size()
                 scale = dpi / 72
@@ -97,7 +97,7 @@ def write_html(
                     f'src="data:image/png;base64,{encoded_image}">{layer}</section>'
                 )
                 if progress:
-                    progress(index + 1, page_count)
+                    progress(position, page_count)
         if ocr_pages:
             stream.write(f'<footer>已對 {len(ocr_pages)} 頁執行 OCR；辨識文字可能有誤，請以原始影像為準。</footer>')
         stream.write('</main><footer>原始頁面外觀採用無損影像；文字層供選取與搜尋，非可編輯表格。</footer></body></html>')

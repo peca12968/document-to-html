@@ -25,6 +25,7 @@ class ConverterWindow:
         self.dpi = tk.StringVar(value="200")
         self.backend = tk.StringVar(value="auto")
         self.password = tk.StringVar()
+        self.pages = tk.StringVar()
         self.text_layer = tk.BooleanVar(value=True)
         self.ocr_mode = tk.StringVar(value="自動辨識")
         self.ocr_language = tk.StringVar(value="chi_tra+eng")
@@ -74,6 +75,9 @@ class ConverterWindow:
         password_frame.grid(row=7, column=0, columnspan=3, sticky="w", pady=8)
         ttk.Label(password_frame, text="PDF 密碼（選填）").pack(side="left")
         ttk.Entry(password_frame, textvariable=self.password, show="●", width=24).pack(side="left", padx=8)
+        ttk.Label(password_frame, text="頁碼（留空轉全部）").pack(side="left", padx=(8, 0))
+        ttk.Entry(password_frame, textvariable=self.pages, width=16).pack(side="left", padx=8)
+        ttk.Label(password_frame, text="例如 2,5-7").pack(side="left")
         actions = ttk.Frame(container)
         actions.grid(row=8, column=0, columnspan=3, sticky="w", pady=12)
         self.convert_button = ttk.Button(actions, text="開始轉換", command=self.start)
@@ -128,6 +132,7 @@ class ConverterWindow:
         if overwrite and not messagebox.askyesno("覆蓋確認", "指定 HTML 已存在，是否覆蓋？"):
             return
         options = ConversionOptions(dpi=int(self.dpi.get()), backend=self.backend.get(),
+                                    pages=self.pages.get().strip() or None,
                                     output_mode="structured" if self.output_mode.get() == "結構化 HTML＋CSS" else "visual",
                                     text_layer=self.text_layer.get(), overwrite=overwrite,
                                     ocr=OcrOptions(mode={"自動辨識": "auto", "全部重辨識": "always", "關閉": "off"}[self.ocr_mode.get()],

@@ -10,6 +10,7 @@ from PIL import ImageDraw
 import pypdfium2 as pdfium
 
 from .errors import ConversionError
+from .page_selection import select_indices
 from .ocr import OcrOptions
 from .ocr_layer import needs_ocr
 from .table_geometry import detect_structure
@@ -164,7 +165,7 @@ class TemplateRenderer:
     def page(self, page):
         self.symbols = page.get("symbols", {})
         self.line(8, f'<!-- 來源第 {page["number"]} 頁；內容採正常文件流，列印頁數可能改變。 -->')
-        self.line(8, f'<article class="document-page" aria-label="來源第 {page["number"]} 頁">')
+        self.line(8, f'<article class="document-page" aria-label="來源第 {page["number"]} 頁" data-page="{page["number"]}">')
         for node in page["blocks"]:
             self.block(node, 12)
         self.line(8, '</article>')
@@ -188,7 +189,7 @@ def _extract_title(words, image_width, image_height):
 
 
 def write_template_html(pdf_path, stream, *, title, dpi, text_layer, password,
-                        max_pages, max_pixels, progress, ocr=None):
+                        max_pages, max_pixels, progress, ocr=None, page_ranges=None):
     options = ocr or OcrOptions()
     engine = TemplateOcr(options)
     renderer = TemplateRenderer(stream)
@@ -200,15 +201,14 @@ def write_template_html(pdf_path, stream, *, title, dpi, text_layer, password,
     except pdfium.PdfiumError as error:
         raise ConversionError("PDF 無法開啟，請檢查檔案及密碼。") from error
     with document:
-        page_count = len(document)
-        if not 0 < page_count <= max_pages:
-            raise ConversionError("PDF 頁數超過上限。")
+        indices = select_indices(len(document), max_pages, page_ranges)
+        page_count = len(indices)
         document.init_forms()
         from .template_native import supports_native_layout, write_native_document
-        if supports_native_layout(document, options.mode):
+        if supports_native_layout(document, options.mode, indices=indices):
             return write_native_document(document,stream,title=title,options=options,
-                                         max_pixels=max_pixels,progress=progress)
-        for index in range(page_count):
+                                         max_pixels=max_pixels,progress=progress,indices=indices)
+        for position, index in enumerate(indices, 1):
             with closing(document[index]) as page:
                 width, height = page.get_size()
                 scale = options.dpi / 72
@@ -240,7 +240,7 @@ def write_template_html(pdf_path, stream, *, title, dpi, text_layer, password,
                         if low_confidence:
                             warnings.append(f"第 {index+1} 頁有 {low_confidence} 個低信心文字區塊。")
                         characters += sum(len(word.text) for word in words if word.text not in symbols)
-                        if index == 0:
+                        if position == 1:
                             heading = _extract_title(words, image.width, image.height)
                             if heading:
                                 title = heading.text
@@ -250,13 +250,13 @@ def write_template_html(pdf_path, stream, *, title, dpi, text_layer, password,
                             image_blocks = [(bounds,image_node(image,bounds,index+1,number))
                                             for number,bounds in enumerate(graphics,1)]
                             model = build_page(structure, words, index+1,image_blocks)
-                            if index == 0:
+                            if position == 1:
                                 renderer.begin(title)
                             renderer.page({"number":index+1, "blocks":model["blocks"], "symbols":symbols})
                             warnings.extend(structure.warnings)
                         finally:
                             structure.cleaned.close()
             if progress:
-                progress(index+1, page_count)
+                progress(position, page_count)
         renderer.end()
     return page_count, characters, tuple(warnings), tuple(ocr_pages)

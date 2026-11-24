@@ -19,7 +19,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--backend", choices=["auto", "word", "libreoffice"], default="auto")
     parser.add_argument("--libreoffice", help="LibreOffice 執行檔路徑")
     parser.add_argument("--timeout", type=int, default=120, help="Word 引擎逾時秒數")
-    parser.add_argument("--max-pages", type=int, default=200)
+    parser.add_argument("--max-pages", type=int, default=200, help="輸出頁數上限")
+    parser.add_argument("--pages", help="來源頁碼或範圍，例如 2,5-7（預設全部）")
     parser.add_argument("--no-text-layer", action="store_true", help="只保留頁面影像")
     parser.add_argument("--ocr", choices=["auto", "always", "off"], default="auto", help="預設自動辨識掃描頁與混合圖片頁")
     parser.add_argument("--ocr-language", default="chi_tra+eng", help="Tesseract 語言模型")
@@ -46,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
             options=ConversionOptions(
                 dpi=arguments.dpi, backend=arguments.backend, libreoffice=arguments.libreoffice,
                 output_mode=arguments.output_mode,
-                timeout=arguments.timeout, max_pages=arguments.max_pages,
+                timeout=arguments.timeout, max_pages=arguments.max_pages, pages=arguments.pages,
                 text_layer=not arguments.no_text_layer, overwrite=arguments.overwrite,
                 ocr=OcrOptions(mode=arguments.ocr, language=arguments.ocr_language,
                                dpi=arguments.ocr_dpi, timeout=arguments.ocr_timeout,
